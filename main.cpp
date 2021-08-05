@@ -1,12 +1,9 @@
 #include "Functions.h"
 #include <boost/mpi.hpp>
 
-void print_grid(array_2D& grid){
-    for(int i=0; i<grid.size1();i++){
-        for(int j=0; j<grid.size2(); j++){
-            std::cout<<grid(i,j)<<" ";
-        }
-        std::cout<<std::endl;
+void get_col(double* out, array_2D input, int num){
+    for(int j=0; j<input.size2();j++){
+        out[j] = input(num,j);
     }
 }
 
@@ -20,6 +17,7 @@ int main(int argc, char* argv[])
         int width = conf.grid_width/(conf.processes -1);
         array_2D grid(conf.grid_height,width);
         long long cycle = 0;
+        double* out;
         for(int i =0;i<conf.grid_height;i++){
             for(int j=0;j<width;j++){
                 grid(i,j) = conf.starting_condition(i,j);
@@ -28,11 +26,9 @@ int main(int argc, char* argv[])
         while(cycle < conf.cycle_duration){
             if(cycle%conf.save_rate == 0){
                 std::cout<<"process 0 saving"<<std::endl;
-                for(int i=0; i< grid.size1();i++){
-                    for(int j=0; j<grid.size2();j++){
-                        double out = grid(i,j);
-                        MPI_Send(&out, 1, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);
-                    }
+                for(int j=0; j<grid.size2();j++){
+                    get_col(out, grid,j);
+                    MPI_Send(out, conf.grid_height, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);
                 }
                 bool done = true;
                 MPI_Send(&done, 1, MPI_C_BOOL, rank+1,0,MPI_COMM_WORLD);
@@ -60,10 +56,13 @@ int main(int argc, char* argv[])
             }
             cycle++;
         }
+        delete [] out;
     } else if (rank == conf.processes-2){
         int width = conf.grid_width / (conf.processes-1);
         array_2D grid(conf.grid_height,width);
         long long cycle = 0;
+        double* out;
+        bool done;
         for (int i = 0; i < conf.grid_height; i++) {
             for (int j = 0; j < width; j++) {
                 grid(i,j) = conf.starting_condition(i,j+(conf.processes-2)*(conf.grid_width/(conf.processes-1)));
@@ -71,13 +70,10 @@ int main(int argc, char* argv[])
         }
         while (cycle < conf.cycle_duration) {
             if (cycle%conf.save_rate == 0) {
-                bool done;
                 MPI_Recv(&done, 1, MPI_C_BOOL, rank-1,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                for(int i=0; i< grid.size1();i++){
-                    for(int j=0; j<grid.size2();j++){
-                        double out = grid(i,j);
-                        MPI_Send(&out, 1, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);
-                    }
+                for(int j=0; j<grid.size2();j++){
+                    get_col(out, grid, j);
+                    MPI_Send(out, conf.grid_height, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);
                 }
             }
             for (int i = 1; i < conf.grid_height - 1; i++) {
@@ -103,8 +99,10 @@ int main(int argc, char* argv[])
             }
             cycle++;
         }
+        delete [] out;
     } else if (rank == conf.processes-1){
         //saver process
+        double* in[conf.grid_height];
         long long iterations = conf.cycle_duration/conf.save_rate, cur_iter =0;
         while(cur_iter<= iterations) {
             std::cout<<"Current iteration: "<<cur_iter<<std::endl;
@@ -116,15 +114,13 @@ int main(int argc, char* argv[])
                 matrices.emplace_back(conf.grid_height,conf.grid_width/(conf.processes-1));
             }
             for(int i=0;i<conf.processes-1;i++){
-                for(int j =0; j<matrices[i].size1();j++){
                     for(int k=0;k<matrices[i].size2();k++){
-                        double in;
-                        if(!MPI_Recv(&in, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE)){
+                        if(!MPI_Recv(in, conf.grid_height, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE)){
                             transferred = false;
                         }
-                        matrices[i](j,k) = in;
+                        for(int j=0; j< conf.grid_width/(conf.processes-1);j++)
+                        matrices[i](j,k) = (*in)[j];
                     }
-                }
                 std::cout<<"Data from process "<<i<<" saved"<<std::endl;
             }
             std::cout<<"Transfer status: "<<transferred<<std::endl;
@@ -139,11 +135,12 @@ int main(int argc, char* argv[])
             }
             cur_iter += 1;
         }
-
     }
     else {
         array_2D grid(conf.grid_height,conf.grid_width / (conf.processes - 1));
         long long cycle = 0;
+        double* out;
+        bool done;
         int width = conf.grid_width / (conf.processes - 1);
         for (int i = 0; i < conf.grid_height; i++) {
             for (int j = 0; j < width; j++) {
@@ -152,13 +149,10 @@ int main(int argc, char* argv[])
         }
         while (cycle < conf.cycle_duration) {
             if (cycle%conf.save_rate == 0) {
-                bool done;
                 MPI_Recv(&done, 1, MPI_C_BOOL, rank-1,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                for(int i=0; i< grid.size1();i++){
-                    for(int j=0; j<grid.size2();j++){
-                        double out = grid(i,j);
-                        MPI_Send(&out, 1, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);
-                    }
+                for(int j=0; j<grid.size2();j++){
+                    get_col(out, grid, j);
+                    MPI_Send(out, conf.grid_height, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);
                 }
                 MPI_Send(&done, 1, MPI_C_BOOL, rank+1,0,MPI_COMM_WORLD);
             }
@@ -195,6 +189,7 @@ int main(int argc, char* argv[])
             }
             cycle++;
         }
+        delete [] out;
     }
     std::cout<<"Process "<<rank<<" finished"<<std::endl;
     MPI_Finalize();
