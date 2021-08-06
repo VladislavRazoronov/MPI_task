@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
         int width = conf.grid_width/(conf.processes -1);
         array_2D grid(conf.grid_height,width);
         long long cycle = 0;
-        double* out;
+        double out[conf.grid_height];
         for(int i =0;i<conf.grid_height;i++){
             for(int j=0;j<width;j++){
                 grid(i,j) = conf.starting_condition(i,j);
@@ -56,12 +56,11 @@ int main(int argc, char* argv[])
             }
             cycle++;
         }
-        delete [] out;
     } else if (rank == conf.processes-2){
         int width = conf.grid_width / (conf.processes-1);
         array_2D grid(conf.grid_height,width);
         long long cycle = 0;
-        double* out;
+        double out[conf.grid_height];
         bool done;
         for (int i = 0; i < conf.grid_height; i++) {
             for (int j = 0; j < width; j++) {
@@ -99,10 +98,9 @@ int main(int argc, char* argv[])
             }
             cycle++;
         }
-        delete [] out;
     } else if (rank == conf.processes-1){
         //saver process
-        double* in[conf.grid_height];
+        double in[conf.grid_height];
         long long iterations = conf.cycle_duration/conf.save_rate, cur_iter =0;
         while(cur_iter<= iterations) {
             std::cout<<"Current iteration: "<<cur_iter<<std::endl;
@@ -119,7 +117,7 @@ int main(int argc, char* argv[])
                             transferred = false;
                         }
                         for(int j=0; j< conf.grid_width/(conf.processes-1);j++)
-                        matrices[i](j,k) = (*in)[j];
+                        matrices[i](j,k) = in[j];
                     }
                 std::cout<<"Data from process "<<i<<" saved"<<std::endl;
             }
@@ -139,7 +137,7 @@ int main(int argc, char* argv[])
     else {
         array_2D grid(conf.grid_height,conf.grid_width / (conf.processes - 1));
         long long cycle = 0;
-        double* out;
+        double out[conf.grid_height];
         bool done;
         int width = conf.grid_width / (conf.processes - 1);
         for (int i = 0; i < conf.grid_height; i++) {
@@ -189,7 +187,6 @@ int main(int argc, char* argv[])
             }
             cycle++;
         }
-        delete [] out;
     }
     std::cout<<"Process "<<rank<<" finished"<<std::endl;
     MPI_Finalize();
