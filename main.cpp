@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
         //saver process
         double in[conf.grid_height];
         long long iterations = conf.cycle_duration/conf.save_rate, cur_iter =0;
-        while(cur_iter<= iterations) {
+        while(cur_iter< iterations) {
             std::cout<<"Current iteration: "<<cur_iter<<std::endl;
             std::vector<array_2D> matrices;
             bool transferred = true;
