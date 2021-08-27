@@ -12,7 +12,17 @@ int main(int argc, char* argv[])
     MPI_Init(&argc, &argv);
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    Mpi_config conf = Mpi_config();
+    Mpi_config conf;
+    if(argc > 3){
+        conf = Mpi_config(argv[1],argv[2]);
+    }
+    else if(argc == 2){
+        conf = Mpi_config(argv[1]);
+    }
+    else{
+        conf = Mpi_config();
+    }
+
     if (rank == 0) {
         int width = conf.grid_width/(conf.processes -1);
         array_2D grid(conf.grid_height,width);
@@ -23,9 +33,10 @@ int main(int argc, char* argv[])
                 grid(i,j) = conf.starting_condition(i,j);
             }
         }
+        std::cout<<conf.starting_condition.size1()<<" "<<conf.starting_condition.size2()<<std::endl;
+        std::cout<<conf.starting_condition(0,999)<<std::endl;
         while(cycle < conf.cycle_duration){
             if(cycle%conf.save_rate == 0){
-                std::cout<<"process 0 saving"<<std::endl;
                 for(int j=0; j<grid.size2();j++){
                     get_col(out, grid,j);
                     MPI_Send(out, conf.grid_height, MPI_DOUBLE, conf.processes-1, 0, MPI_COMM_WORLD);

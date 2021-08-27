@@ -19,4 +19,4 @@
     2. run command: mpiexec -n 5 bin/TempGrid.exe 
 - Linux:
     1. Open console
-    2. Run command: mpirun -n 5 bin/TempGrid.exe
+    2. Run command: mpirun -n 5 bin/TempGrid.elf
